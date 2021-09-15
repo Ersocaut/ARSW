@@ -1,0 +1,304 @@
+
+### Escuela Colombiana de Ingeniería
+
+### Arquitecturas de Software
+
+### Integrantes:
+
+|     Nombre    |     Git         |
+|--------------|------------- | 
+|Camilo Rincón|[Rincon10](https://github.com/Rincon10 )  |
+|Leonardo Garzón |[Ersocaut](https://github.com/Ersocaut)   |
+
+## Laboratorio API REST para la gestión de planos
+
+
+### Dependencias
+* [Laboratorio Componentes y conectores Middleware- gestión de planos (Blueprints) Parte 1](https://github.com/ARSW-ECI-beta/REST_API-JAVA-BLUEPRINTS_PART1)
+
+### Descripción
+En este ejercicio se va a construír el componente BlueprintsRESTAPI, el cual permita gestionar los planos arquitectónicos de una prestigiosa compañia de diseño. La idea de este API es ofrecer un medio estandarizado e 'independiente de la plataforma' para que las herramientas que se desarrollen a futuro para la compañía puedan gestionar los planos de forma centralizada.
+El siguiente, es el diagrama de componentes que corresponde a las decisiones arquitectónicas planteadas al inicio del proyecto:
+
+![](img/CompDiag.png)
+
+Donde se definió que:
+
+* El componente BlueprintsRESTAPI debe resolver los servicios de su interfaz a través de un componente de servicios, el cual -a su vez- estará asociado con un componente que provea el esquema de persistencia. Es decir, se quiere un bajo acoplamiento entre el API, la implementación de los servicios, y el esquema de persistencia usado por los mismos.
+
+Del anterior diagrama de componentes (de alto nivel), se desprendió el siguiente diseño detallado, cuando se decidió que el API estará implementado usando el esquema de inyección de dependencias de Spring (el cual requiere aplicar el principio de Inversión de Dependencias), la extensión SpringMVC para definir los servicios REST, y SpringBoot para la configurar la aplicación:
+
+
+![](img/ClassDiagram.png)
+
+### Parte I
+
+1. Integre al proyecto base suministrado los Beans desarrollados en el ejercicio anterior. Sólo copie las clases, NO los archivos de configuración. Rectifique que se tenga correctamente configurado el esquema de inyección de dependencias con las anotaciones @Service y @Autowired.
+
+2. Modifique el bean de persistecia 'InMemoryBlueprintPersistence' para que por defecto se inicialice con al menos otros tres planos, y con dos asociados a un mismo autor.
+
+3. Configure su aplicación para que ofrezca el recurso "/blueprints", de manera que cuando se le haga una petición GET, retorne -en formato jSON- el conjunto de todos los planos. Para esto:
+
+	* Modifique la clase BlueprintAPIController teniendo en cuenta el siguiente ejemplo de controlador REST hecho con SpringMVC/SpringBoot:
+
+	```java
+	@RestController
+	@RequestMapping(value = "/url-raiz-recurso")
+	public class XXController {
+    
+        
+    @RequestMapping(method = RequestMethod.GET)
+    public ResponseEntity<?> manejadorGetRecursoXX(){
+        try {
+            //obtener datos que se enviarán a través del API
+            return new ResponseEntity<>(data,HttpStatus.ACCEPTED);
+        } catch (XXException ex) {
+            Logger.getLogger(XXController.class.getName()).log(Level.SEVERE, null, ex);
+            return new ResponseEntity<>("Error bla bla bla",HttpStatus.NOT_FOUND);
+        }        
+	}
+
+	```
+	* Haga que en esta misma clase se inyecte el bean de tipo BlueprintServices (al cual, a su vez, se le inyectarán sus dependencias de persisntecia y de filtrado de puntos).
+
+4. Verifique el funcionamiento de a aplicación lanzando la aplicación con maven:
+
+	```bash
+	$ mvn compile
+	$ mvn spring-boot:run
+	
+	```
+     Compilando y ejecutando desde consola 
+     
+     <br>
+         <img src="img/media/Parte1-4.png" alt="Ejecucion" >
+     <br>
+    
+    
+   * Insercion de casos Bases en codigo:
+   ``` java
+	public class InMemoryBlueprintPersistence implements BlueprintsPersistence{
+
+    private final Map<Tuple<String,String>,Blueprint> blueprints = new HashMap<>();
+
+    private void loadStubData(){
+        //load stub data
+        for ( int x =1;x<=4; x++ ){
+            Point[] pts = new Point[]{new Point(140*x, 140*x),new Point(140*x, 140*x),new Point(115*x, 115*x)};
+            int authorNum = ( x%2 == 0) ? 1:2;
+            Blueprint bp = new Blueprint("_authorname_"+authorNum, "_bpname_ "+x,pts);
+            blueprints.put(new Tuple<>(bp.getAuthor(),bp.getName()), bp);
+        }
+
+    }
+
+    public InMemoryBlueprintPersistence() {
+        loadStubData();
+    } 
+   ```
+
+   
+   * Enviando una petición GET a: http://localhost:8080/blueprints. Rectifique que, como respuesta, se obtenga un objeto jSON con una lista que contenga el detalle de los planos suministados por defecto, y que se haya aplicado el filtrado de puntos correspondiente.
+    <br>
+             <img src="img/media/AllBlueprints.png" alt="Ejecucion" >
+    <br>
+ 
+     
+    
+* (5) Modifique el controlador para que ahora, acepte peticiones GET al recurso /blueprints/{author}, el cual retorne usando una representación jSON todos los planos realizados por el autor cuyo nombre sea {author}. Si no existe dicho autor, se debe responder con el código de error HTTP 404. Para esto, revise en [la documentación de Spring](http://docs.spring.io/spring/docs/current/spring-framework-reference/html/mvc.html), sección 22.3.2, el uso de @PathVariable. De nuevo, verifique que al hacer una petición GET -por ejemplo- a recurso http://localhost:8080/blueprints/juan, se obtenga en formato jSON el conjunto de planos asociados al autor 'juan' (ajuste esto a los nombres de autor usados en el punto 2).
+
+    * Modificando loadStubData para que al consultar "juan" no de un error
+    ``` java
+    private void loadStubData(){
+        //load stub data
+        for ( int x =1;x<=4; x++ ){
+            Point[] pts = new Point[]{new Point(140*x, 140*x),new Point(140*x, 140*x),new Point(115*x, 115*x)};
+            int authorNum = ( x%2 == 0) ? 1:2;
+            Blueprint bp = new Blueprint("_authorname_"+authorNum, "_bpname_ "+x,pts);
+            blueprints.put(new Tuple<>(bp.getAuthor(),bp.getName()), bp);
+        }
+        Blueprint bp = new Blueprint("juan", "_bpname_ ",new Point[]{new Point(140, 14),new Point(14, 14),new Point(11, 15)});
+        blueprints.put(new Tuple<>(bp.getAuthor(),bp.getName()), bp);
+    }
+    ```
+   * Creando metodo en el controlador que maneje la peticion de usuario
+   ``` java
+    @RequestMapping( value = "/{author}" , method=RequestMethod.GET)
+        public ResponseEntity<?> getByAuthor(@PathVariable("author") String author){
+            some logic..
+        }
+   ```
+   
+   * Ejecutando peticion GET al recurso /blueprints/{author}, con autor "juan"
+   
+    <br>
+         <img src="img/media/blueprintsAuthor.png" alt="EjecucionJuan" >
+    <br>
+    
+    * Ejecutando peticion GET al recurso con un author no existente y respuesta 404
+    
+    <br>
+     <img src="img/media/authorNotFound.png" alt="notFound" >
+    <br>
+
+* (6) Modifique el controlador para que ahora, acepte peticiones GET al recurso /blueprints/{author}/{bpname}, el cual retorne usando una representación jSON sólo UN plano, en este caso el realizado por {author} y cuyo nombre sea {bpname}. De nuevo, si no existe dicho autor, se debe responder con el código de error HTTP 404. 
+    *  Modificacion para que acepte peticiones con nombre de autor y nombre de plano.
+    ``` java
+    @RequestMapping( value = "/{author}/{bpname}" , method=RequestMethod.GET)
+    public ResponseEntity<?> getByAuthorBPname(@PathVariable("author") String author, @PathVariable("bpName") String bpName){
+    }
+    ```
+  
+    * Petición con nombre de autor: "_authorname_2" y plano "_bpname_ 1"
+    
+    <br>
+         <img src="img/media/authorAndBp.png" alt="authorAndBp" >
+    <br>
+    
+    * Codigo 404 al no encontrar al autor
+    
+    <br>
+         <img src="img/media/authorNotFound2.png" alt="notFound" >
+    <br>
+
+### Parte II
+
+1.  Agregue el manejo de peticiones POST (creación de nuevos planos), de manera que un cliente http pueda registrar una nueva orden haciendo una petición POST al recurso ‘planos’, y enviando como contenido de la petición todo el detalle de dicho recurso a través de un documento jSON. Para esto, tenga en cuenta el siguiente ejemplo, que considera -por consistencia con el protocolo HTTP- el manejo de códigos de estados HTTP (en caso de éxito o error):
+
+	```	java
+	@RequestMapping(method = RequestMethod.POST)	
+	public ResponseEntity<?> manejadorPostRecursoXX(@RequestBody TipoXX o){
+        try {
+            //registrar dato
+            return new ResponseEntity<>(HttpStatus.CREATED);
+        } catch (XXException ex) {
+            Logger.getLogger(XXController.class.getName()).log(Level.SEVERE, null, ex);
+            return new ResponseEntity<>("Error bla bla bla",HttpStatus.FORBIDDEN);            
+        }        
+ 	
+	}
+	```	
+    * Para permitir la creacion de nuevos planos se implemento el siguiente metodo
+    
+    ``` java	
+    @RequestMapping(value = "/add",method = RequestMethod.POST, consumes = "application/json")
+        @ResponseBody
+        public ResponseEntity<?> manejadorPostRecursoXX(@RequestBody Blueprint blueprint){
+            try {
+                //registrar dato
+                services.addNewBlueprint(blueprint);
+    
+                return new ResponseEntity<>(HttpStatus.CREATED.getReasonPhrase() , HttpStatus.CREATED);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                Logger.getLogger(BlueprintAPIController.class.getName()).log(Level.SEVERE, null, ex);
+                return new ResponseEntity<>(HttpStatus.CREATED.getReasonPhrase(),HttpStatus.FORBIDDEN);
+            }
+    
+        }
+    ```	
+
+ 
+2.  Para probar que el recurso ‘planos’ acepta e interpreta
+    correctamente las peticiones POST, use el comando curl de Unix. Este
+    comando tiene como parámetro el tipo de contenido manejado (en este
+    caso jSON), y el ‘cuerpo del mensaje’ que irá con la petición, lo
+    cual en este caso debe ser un documento jSON equivalente a la clase
+    Cliente (donde en lugar de {ObjetoJSON}, se usará un objeto jSON correspondiente a una nueva orden:
+
+	```	
+	$ curl -i -X POST -HContent-Type:application/json -HAccept:application/json http://URL_del_recurso_ordenes -d '{ObjetoJSON}'
+	```	
+
+	Con lo anterior, registre un nuevo plano (para 'diseñar' un objeto jSON, puede usar [esta herramienta](http://www.jsoneditoronline.org/)):
+	
+
+	Nota: puede basarse en el formato jSON mostrado en el navegador al consultar una orden con el método GET.
+
+    * Para realizar la inserción de planos se usara el siguiente comando: 
+    
+    <br>
+         <img src="img/media/adding-POST.png" alt="adding-POST" >
+    <br>
+3. Teniendo en cuenta el autor y numbre del plano registrado, verifique que el mismo se pueda obtener mediante una petición GET al recurso '/blueprints/{author}/{bpname}' correspondiente.
+
+    <br>
+         <img src="img/media/getBpII-3.png" alt="getBpII-3" >
+    <br>
+
+4. Agregue soporte al verbo PUT para los recursos de la forma '/blueprints/{author}/{bpname}', de manera que sea posible actualizar un plano determinado.
+ * Creando metodo que soporte la operación PUT
+	 ``` java
+	 @RequestMapping(value = "/{author}/{name}",method = RequestMethod.PUT)
+	    @ResponseBody
+	    public ResponseEntity<?> modifyBP(@RequestBody Blueprint blueprint,@PathVariable("author") String author, @PathVariable("name") String name){
+		Some code..
+	    }
+	 ```
+ * Antes de realizar la modificación
+ <br>
+         <img src="img/media/beforeMOD.png" alt="beforeMOD" >
+ <br>
+ 
+ * Haciendo la modificación 
+ <br>
+          <img src="img/media/modyfing.png" alt="MOD" >
+ <br>
+ * Despues de la modificación
+ <br>
+           <img src="img/media/afterMOD.png" alt="afterMOD" >
+ <br>
+ 
+### Parte III
+
+El componente BlueprintsRESTAPI funcionará en un entorno concurrente. Es decir, atederá múltiples peticiones simultáneamente (con el stack de aplicaciones usado, dichas peticiones se atenderán por defecto a través múltiples de hilos). Dado lo anterior, debe hacer una revisión de su API (una vez funcione), e identificar:
+
+* ¿Qué condiciones de carrera se podrían presentar?
+
+  - Modificar un plano al tiempo que se estan consultando los planos.
+
+  - Agregar un nuevo plano al tiempo que ese estan consultando los planos.
+
+* ¿Cuales son las respectivas regiones críticas?
+
+  - Las regiones críticas se encontrarían en cada uno de los métodos de verbos (PUT, GET, POST, etc).
+Pues son a los cuales el controlador llama directamente, y podrían generar los deathblock o
+comportamiento inesperados en cada una de las instancias del servicio web.
+
+Ajuste el código para suprimir las condiciones de carrera. Tengan en cuenta que simplemente sincronizar el acceso a las operaciones de persistencia/consulta DEGRADARÁ SIGNIFICATIVAMENTE el desempeño de API, por lo cual se deben buscar estrategias alternativas.
+
+Escriba su análisis y la solución aplicada en el archivo ANALISIS_CONCURRENCIA.txt
+
+Identificamos que las condiciones de carrera se enfrentaban al momento de acceder al 
+recurso compartido HashMap blueprints. 
+
+```java
+@Component
+@Qualifier("InMemory")
+public class InMemoryBlueprintPersistence implements BlueprintsPersistence{
+
+    private final HashMap<Tuple<String,String>,Blueprint> blueprints = new ConcurrentHashMap<>();
+}
+```
+
+Lo solucionamos cambiando el tipo de este a
+ConcurrentHashMap, que es una clase TreadSafe, facilitando el manejo de la misma y las zonas 
+críticas de manera nativa.
+
+```java
+@Component
+@Qualifier("InMemory")
+public class InMemoryBlueprintPersistence implements BlueprintsPersistence{
+
+    private final ConcurrentHashMap<Tuple<String,String>,Blueprint> blueprints = new ConcurrentHashMap<>();
+}
+```
+
+
+### Referencias 
+* Adictos al trabajo. 2021. Spring + REST + JSON = SOAUI - Adictos al trabajo. [online] Available at: <https://www.adictosaltrabajo.com/2010/09/27/spring-rest-json/> [Accessed 6 September 2021].
+*  (2021). Retrieved 5 September 2021, from https://pharos.sh/controller-y-restcontroller-anotaciones-en-spring-boot/.
+* Introducción a MVC en Spring. Jtech.ua.es. (2021). Retrieved 5 September 2021, from http://www.jtech.ua.es/j2ee/publico/spring-2012-13/sesion03-apuntes.html.
+* Youtube.com. (2021). Retrieved 5 September 2021, from https://www.youtube.com/watch?v=NplgV51g470.
+* Java Spring usando ResponseEntity. Medium. (2021). Retrieved 5 September 2021, from https://medium.com/@sebastian.alejandro.hv/java-spring-usando-responseentity-ef327164d514.
+* JSON. Formatos. Informática. Bartolomé Sintes Marco. www.mclibre.org. Mclibre.org. (2021). Retrieved 5 September 2021, from https://www.mclibre.org/consultar/informatica/lecciones/formato-json.html.
